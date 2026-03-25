@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# PyInstaller
+FishAssistant.spec
+build.spec
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# pytest
+.pytest_cache/
+
+# 打包产物（exe/apk 不提交到git）
+dist/*.exe
+dist/*.apk
+
+# 旧的 Android Kotlin 项目文件（已废弃）
+app/
+gradle/
+*.gradle.kts
+gradle.properties
+gradlew
+gradlew.bat
+settings.gradle.kts
+local.properties
+
+# 旧的 src 目录（已迁移到 core/）
+src/
+
+# WSL 构建相关
+scripts/build_main.py
+
+# 缓存
+.fish_assistant/
