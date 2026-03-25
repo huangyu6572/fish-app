@@ -55,6 +55,10 @@ from core.ui_helpers import (
     REMINDER_NAMES,
     get_motivational_emoji,
     get_motivational_message,
+    get_daily_summary_text,
+    get_random_slogan,
+    get_random_nickname,
+    get_usage_emoji,
     format_usage_progress,
     get_usage_color,
 )
@@ -161,56 +165,68 @@ class FishAssistantApp:
     # ── 首页 ──────────────────────────────────────────
 
     def _build_home_tab(self, parent):
-        """构建首页"""
-        # 标题
+        """构建首页 - 可爱搞怪风格"""
+        # 标题区域
         title_frame = ttk.Frame(parent)
         title_frame.pack(fill=X, pady=(0, 10))
 
         ttk.Label(
             title_frame,
-            text="🐟 摸鱼小助手",
+            text="🐟 摸鱼小助手 🐟",
             font=("", 22, "bold"),
             bootstyle="inverse-info",
             anchor="center",
         ).pack(fill=X, ipady=10)
 
-        ttk.Label(
+        # 随机搞笑 slogan
+        self.slogan_label = ttk.Label(
             title_frame,
-            text="提肛喝水摸鱼，一个都不能少！",
+            text=get_random_slogan(),
             font=("", 11),
             anchor="center",
-        ).pack(fill=X, pady=5)
+            cursor="hand2",
+        )
+        self.slogan_label.pack(fill=X, pady=5)
+        # 点击 slogan 换一条
+        self.slogan_label.bind("<Button-1>", lambda e: self.slogan_label.configure(
+            text=get_random_slogan()
+        ))
 
-        # 监控开关
-        switch_frame = _make_labelframe(parent, "监控状态")
+        # 监控开关 - 更可爱的文案
+        switch_frame = _make_labelframe(parent, "🎮 监控状态")
         switch_frame.pack(fill=X, pady=5)
 
         self.status_label = ttk.Label(
-            switch_frame, text="⏸️ 未开启监控", font=("", 13)
+            switch_frame, text="😴 摸鱼小助手在打盹...", font=("", 13)
         )
         self.status_label.pack(side=LEFT, padx=10)
 
         ttk.Checkbutton(
             switch_frame,
-            text="开启监控",
+            text="唤醒小助手",
             variable=self.monitor_var,
             command=self._toggle_monitor,
             bootstyle="success-round-toggle",
         ).pack(side=RIGHT, padx=10)
 
-        # 应用使用时间
-        usage_frame = _make_labelframe(parent, "📱 应用使用时间")
+        # 应用使用时间 - 更生动
+        usage_frame = _make_labelframe(parent, "📱 摸鱼时间监控")
         usage_frame.pack(fill=X, pady=5)
 
         self.usage_bars = {}
+        app_display = {
+            "wechat": ("💬", "微信摸鱼"),
+            "douyin": ("🎵", "抖音沉迷"),
+        }
         for app_key in ["wechat", "douyin"]:
             app_info = MONITORED_APPS[app_key]
+            emoji, label_text = app_display[app_key]
             row = ttk.Frame(usage_frame)
             row.pack(fill=X, pady=3)
 
             ttk.Label(
                 row,
-                text=f"{app_info.icon_emoji} {app_info.display_name}",
+                text=f"{emoji} {label_text}",
                 font=("", 11),
                 width=10,
             ).pack(side=LEFT)
@@ -225,8 +241,8 @@ class FishAssistantApp:
 
             self.usage_bars[app_key] = (bar, time_label)
 
-        # 测试提醒按钮
-        test_frame = _make_labelframe(parent, "🎮 测试提醒")
+        # 测试提醒按钮 - 更搞怪
+        test_frame = _make_labelframe(parent, "� 戳一下试试")
         test_frame.pack(fill=X, pady=5)
 
         btn_row1 = ttk.Frame(test_frame)
@@ -235,12 +251,12 @@ class FishAssistantApp:
         btn_row2.pack(fill=X, pady=2)
 
         buttons = [
-            ("💧 喝水", ReminderType.DRINK_WATER, "info", btn_row1),
-            ("🍑 提肛", ReminderType.KEGEL, "danger", btn_row1),
-            ("🐟 摸鱼", ReminderType.FISH_TOUCH, "success", btn_row1),
-            ("👀 护眼", ReminderType.REST_EYES, "warning", btn_row2),
-            ("🧘 伸展", ReminderType.STRETCH, "secondary", btn_row2),
-            ("🎲 随机", None, "primary", btn_row2),
+            ("💧 喝水!", ReminderType.DRINK_WATER, "info", btn_row1),
+            ("🍑 提肛!", ReminderType.KEGEL, "danger", btn_row1),
+            ("🐟 摸鱼!", ReminderType.FISH_TOUCH, "success", btn_row1),
+            ("👀 护眼!", ReminderType.REST_EYES, "warning", btn_row2),
+            ("🧘 伸展!", ReminderType.STRETCH, "secondary", btn_row2),
+            ("� 随机!", None, "primary", btn_row2),
         ]
 
         for text, rtype, style, parent_row in buttons:
@@ -252,13 +268,13 @@ class FishAssistantApp:
                 width=8,
             ).pack(side=LEFT, padx=3, expand=True, fill=X)
 
-        # 今日小结
-        summary_frame = _make_labelframe(parent, "📝 今日小结")
+        # 今日小结 - 更有趣
+        summary_frame = _make_labelframe(parent, "📝 今日战报")
         summary_frame.pack(fill=BOTH, expand=True, pady=5)
 
         self.summary_label = ttk.Label(
             summary_frame,
-            text="还没有提醒记录~",
+            text="😴 还没有记录哦~\n快唤醒小助手开始健康生活！",
             font=("", 11),
             wraplength=450,
         )
@@ -267,23 +283,23 @@ class FishAssistantApp:
     # ── 统计页 ──────────────────────────────────────────
 
     def _build_stats_tab(self, parent):
-        """构建统计页面"""
+        """构建统计页面 - 搞怪风格"""
         ttk.Label(
             parent,
-            text="📊 今日统计",
+            text="📊 今日战绩",
             font=("", 18, "bold"),
             anchor="center",
         ).pack(fill=X, pady=(0, 15))
 
-        # 统计卡片
+        # 统计卡片 - 更有趣的描述
         self.stat_labels = {}
 
         stats_config = [
-            ("wechat_usage", "💬 微信使用", "info"),
-            ("douyin_usage", "🎵 抖音使用", "danger"),
-            ("drink_count", "💧 喝水次数", "primary"),
-            ("kegel_count", "🍑 提肛次数", "warning"),
-            ("fish_count", "🐟 摸鱼提醒", "success"),
+            ("wechat_usage", "💬 微信摸鱼时长", "info"),
+            ("douyin_usage", "🎵 抖音沉迷时长", "danger"),
+            ("drink_count", "💧 补水次数", "primary"),
+            ("kegel_count", "🍑 提肛修炼", "warning"),
+            ("fish_count", "🐟 摸鱼被抓", "success"),
         ]
 
         for key, label_text, style in stats_config:
@@ -314,7 +330,7 @@ class FishAssistantApp:
 
         self.motivation_text_label = ttk.Label(
             parent,
-            text="开启监控，开始健康之旅！",
+            text="嘿打工人，快开启监控吧！🐟",
             font=("", 12),
             wraplength=400,
             anchor="center",
@@ -324,7 +340,7 @@ class FishAssistantApp:
         # 重置按钮
         ttk.Button(
             parent,
-            text="🔄 重置今日统计",
+            text="�️ 清空今日战绩",
             bootstyle="outline-danger",
             command=self._reset_stats,
         ).pack(pady=10)
@@ -332,16 +348,16 @@ class FishAssistantApp:
     # ── 设置页 ──────────────────────────────────────────
 
     def _build_settings_tab(self, parent):
-        """构建设置页面"""
+        """构建设置页面 - 轻松风格"""
         ttk.Label(
             parent,
-            text="⚙️ 设置",
+            text="⚙️ 调教小助手",
             font=("", 18, "bold"),
             anchor="center",
         ).pack(fill=X, pady=(0, 15))
 
         # 时间限制设置
-        limit_frame = _make_labelframe(parent, "⏱️ 使用时间限制(分钟)")
+        limit_frame = _make_labelframe(parent, "⏱️ 摸鱼时限 (分钟)")
         limit_frame.pack(fill=X, pady=5)
 
         limit_items = [
@@ -363,16 +379,16 @@ class FishAssistantApp:
                 command=self._save_settings,
             ).pack(side=RIGHT, padx=10)
 
-        # 提醒类型开关
-        type_frame = _make_labelframe(parent, "🔔 提醒类型")
+        # 提醒类型开关 - 更有趣的描述
+        type_frame = _make_labelframe(parent, "🔔 被骚扰方式")
         type_frame.pack(fill=X, pady=5)
 
         type_items = [
-            ("💧 喝水提醒", self.drink_var),
-            ("🍑 提肛提醒", self.kegel_var),
-            ("🐟 摸鱼提醒", self.fish_var),
-            ("👀 护眼提醒", self.eyes_var),
-            ("🧘 伸展提醒", self.stretch_var),
+            ("💧 喝水提醒 (成为水人)", self.drink_var),
+            ("🍑 提肛提醒 (菊花宝典)", self.kegel_var),
+            ("🐟 摸鱼提醒 (防老板)", self.fish_var),
+            ("👀 护眼提醒 (拯救近视)", self.eyes_var),
+            ("🧘 伸展提醒 (告别腰突)", self.stretch_var),
         ]
         for label_text, var in type_items:
             ttk.Checkbutton(
@@ -415,7 +431,7 @@ class FishAssistantApp:
         # 版本信息
         ttk.Label(
             parent,
-            text="摸鱼小助手 v1.0.0  |  Python跨平台版",
+            text="🐟 摸鱼小助手 v1.1.0  |  一个不正经的健康提醒APP",
             font=("", 9),
             anchor="center",
             bootstyle="secondary",
@@ -431,10 +447,14 @@ class FishAssistantApp:
 
         if enabled:
             self.scheduler.start()
-            self.status_label.configure(text="✅ 监控运行中...", bootstyle="success")
+            self.status_label.configure(
+                text="🐟 小助手已上线！盯着你呢~", bootstyle="success"
+            )
         else:
             self.scheduler.stop()
-            self.status_label.configure(text="⏸️ 未开启监控", bootstyle="")
+            self.status_label.configure(
+                text="😴 摸鱼小助手在打盹...", bootstyle=""
+            )
 
     def _test_reminder(self, reminder_type=None):
         """测试提醒"""
@@ -485,9 +505,9 @@ class FishAssistantApp:
         ))
 
     def _show_reminder_popup(self, reminder_type, title, message, art):
-        """显示搞怪提醒弹窗 - 同时显示表情包图片和ASCII Art"""
+        """显示搞怪提醒弹窗 - 可爱娱乐风格"""
         popup = Toplevel(self.root)
-        popup.title(title)
+        popup.title(f"🐟 {title}")
         popup.geometry("460x620")
         popup.resizable(False, False)
         popup.attributes("-topmost", True)
@@ -498,12 +518,22 @@ class FishAssistantApp:
 
         bg_color = REMINDER_COLORS.get(reminder_type, "#FF6B35")
 
-        # 标题
+        # 标题 - 更搞怪
         header = ttk.Frame(popup)
         header.pack(fill=X)
+
+        cute_titles = {
+            ReminderType.DRINK_WATER: "💧 水分警报！！",
+            ReminderType.KEGEL: "🍑 菊花召唤令！",
+            ReminderType.FISH_TOUCH: "🚨 摸鱼被抓现行！",
+            ReminderType.REST_EYES: "👀 眼睛快瞎了！",
+            ReminderType.STRETCH: "🧘 你的身体在哭泣！",
+        }
+        display_title = cute_titles.get(reminder_type, title)
+
         ttk.Label(
             header,
-            text=title,
+            text=display_title,
             font=("", 18, "bold"),
             anchor="center",
             bootstyle="inverse-danger" if reminder_type == ReminderType.FISH_TOUCH else "inverse-info",
@@ -545,13 +575,18 @@ class FishAssistantApp:
             anchor="center",
         ).pack(fill=X, padx=10, pady=5)
 
-        # 按钮
+        # 按钮 - 搞怪文案
         btn_frame = ttk.Frame(popup, padding=10)
         btn_frame.pack(fill=X)
 
+        dismiss_texts = [
+            "✅ 知道了知道了！", "✅ 好的好的！", "✅ 收到收到！",
+            "✅ 马上行动！", "✅ 遵命！",
+        ]
+        import random as _rnd
         ttk.Button(
             btn_frame,
-            text="✅ 知道了！",
+            text=_rnd.choice(dismiss_texts),
             bootstyle="success",
             command=popup.destroy,
             width=15,
@@ -559,7 +594,7 @@ class FishAssistantApp:
 
         ttk.Button(
             btn_frame,
-            text="🔄 换一个",
+            text="🎰 再来一个！",
             bootstyle="info-outline",
             command=lambda: self._refresh_popup(popup, reminder_type, art_text),
             width=15,
@@ -629,9 +664,9 @@ class FishAssistantApp:
                 progress = format_usage_progress(usage.total_minutes, limit)
                 bar["value"] = progress * 100
 
-                status = "🟢" if progress < 0.5 else ("🟡" if progress < 0.8 else "🔴")
+                status_emoji = get_usage_emoji(progress)
                 label.configure(
-                    text=f"{status} {usage.format_time()} / {limit}分钟"
+                    text=f"{status_emoji} {usage.format_time()} / {limit}分钟"
                 )
 
         # 更新统计数据
@@ -646,9 +681,15 @@ class FishAssistantApp:
             self.stat_labels["douyin_usage"].configure(
                 text=douyin_usage.format_time() if douyin_usage else "0分钟"
             )
-            self.stat_labels["drink_count"].configure(text=str(s.today_drink_count))
-            self.stat_labels["kegel_count"].configure(text=str(s.today_kegel_count))
-            self.stat_labels["fish_count"].configure(text=str(s.today_fish_count))
+            self.stat_labels["drink_count"].configure(
+                text=f"{s.today_drink_count} 杯 💧"
+            )
+            self.stat_labels["kegel_count"].configure(
+                text=f"{s.today_kegel_count} 次 🍑"
+            )
+            self.stat_labels["fish_count"].configure(
+                text=f"{s.today_fish_count} 次 🐟"
+            )
 
             # 更新激励
             total = s.today_drink_count + s.today_kegel_count + s.today_fish_count
@@ -662,15 +703,13 @@ class FishAssistantApp:
                 )
             )
 
-        # 更新首页小结
+        # 更新首页战报
         if hasattr(self, 'summary_label'):
-            total = s.today_drink_count + s.today_kegel_count + s.today_fish_count
-            emoji = get_motivational_emoji(total)
             self.summary_label.configure(
-                text=(
-                    f"{emoji} 今日：喝水{s.today_drink_count}次 | "
-                    f"提肛{s.today_kegel_count}次 | "
-                    f"摸鱼提醒{s.today_fish_count}次"
+                text=get_daily_summary_text(
+                    s.today_drink_count,
+                    s.today_kegel_count,
+                    s.today_fish_count,
                 )
             )
 
@@ -680,7 +719,9 @@ class FishAssistantApp:
         # 如果上次开着监控，自动恢复
         if self.settings_manager.settings.monitor_enabled:
             self.scheduler.start()
-            self.status_label.configure(text="✅ 监控运行中...", bootstyle="success")
+            self.status_label.configure(
+                text="🐟 小助手已上线！盯着你呢~", bootstyle="success"
+            )
             logger.info("Monitor auto-resumed from previous session")
 
         try:
