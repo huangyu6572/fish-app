@@ -4,21 +4,46 @@
 """
 
 import sys
+import os
+import logging
+import traceback
 import threading
 import platform
-from datetime import date
+from datetime import date, datetime
+from pathlib import Path
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.dialogs import Messagebox
 from tkinter import Text, END, Toplevel, StringVar, IntVar, BooleanVar
 
+# ── 日志配置 ──────────────────────────────────────────
+def _setup_logging():
+    """配置日志，写入文件 + 控制台"""
+    log_dir = Path.home() / ".fish_assistant" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / f"fish_{datetime.now().strftime('%Y%m%d')}.log"
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        handlers=[
+            logging.FileHandler(str(log_file), encoding="utf-8"),
+            logging.StreamHandler(sys.stderr),
+        ],
+    )
+    return logging.getLogger("fish_assistant")
+
+logger = _setup_logging()
+
 try:
     from tkinter import PhotoImage as TkPhotoImage
     from PIL import Image as PILImage, ImageTk
     HAS_PIL = True
-except ImportError:
+    logger.info("PIL/Pillow loaded successfully")
+except ImportError as e:
     HAS_PIL = False
+    logger.warning(f"PIL not available: {e}")
 
 from core.reminder_types import ReminderType, REMINDER_CONFIGS
 from core.process_monitor import ProcessMonitor, MONITORED_APPS
@@ -34,45 +59,69 @@ from core.ui_helpers import (
     get_usage_color,
 )
 
+logger.info("All modules imported successfully")
+
+
+def _make_labelframe(parent, text, pad=10):
+    """创建 LabelFrame 并安全设置 padding（兼容不同 ttkbootstrap 版本）"""
+    try:
+        frame = ttk.LabelFrame(parent, text=text, padding=pad)
+    except Exception:
+        frame = ttk.LabelFrame(parent, text=text)
+        # 用内层 Frame 模拟 padding
+        inner = ttk.Frame(frame, padding=pad)
+        inner.pack(fill=BOTH, expand=True)
+    return frame
+
 
 class FishAssistantApp:
     """摸鱼小助手主应用"""
 
     def __init__(self):
-        # 初始化组件
-        self.settings_manager = SettingsManager()
-        self.process_monitor = ProcessMonitor()
-        self.image_manager = FunnyImageManager()
-        self.scheduler = ReminderScheduler(
-            settings_manager=self.settings_manager,
-            process_monitor=self.process_monitor,
-            on_reminder=self._on_reminder_callback,
-        )
-
-        # 创建主窗口
-        self.root = ttk.Window(
-            title="🐟 摸鱼小助手 - 提肛喝水摸鱼提醒",
-            themename=self.settings_manager.settings.theme,
-            size=(520, 720),
-            resizable=(True, True),
-        )
-        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-
-        # 设置窗口图标（跨平台）
+        logger.info("FishAssistantApp initializing...")
         try:
-            if platform.system() == "Windows":
-                self.root.iconbitmap(default="")
-        except Exception:
-            pass
+            # 初始化组件
+            self.settings_manager = SettingsManager()
+            self.process_monitor = ProcessMonitor()
+            self.image_manager = FunnyImageManager()
+            self.scheduler = ReminderScheduler(
+                settings_manager=self.settings_manager,
+                process_monitor=self.process_monitor,
+                on_reminder=self._on_reminder_callback,
+            )
+            logger.info("Core components initialized")
 
-        # Tkinter 变量
-        self._init_vars()
+            # 创建主窗口
+            self.root = ttk.Window(
+                title="🐟 摸鱼小助手 - 提肛喝水摸鱼提醒",
+                themename=self.settings_manager.settings.theme,
+                size=(520, 720),
+                resizable=(True, True),
+            )
+            self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+            logger.info("Main window created")
 
-        # 构建界面
-        self._build_ui()
+            # 设置窗口图标（跨平台）
+            try:
+                if platform.system() == "Windows":
+                    self.root.iconbitmap(default="")
+            except Exception:
+                pass
 
-        # 启动定时更新
-        self._start_ui_update()
+            # Tkinter 变量
+            self._init_vars()
+
+            # 构建界面
+            self._build_ui()
+            logger.info("UI built successfully")
+
+            # 启动定时更新
+            self._start_ui_update()
+            logger.info("FishAssistantApp ready!")
+
+        except Exception as e:
+            logger.error(f"Init failed: {e}\n{traceback.format_exc()}")
+            raise
 
     def _init_vars(self):
         """初始化界面变量"""
@@ -133,7 +182,7 @@ class FishAssistantApp:
         ).pack(fill=X, pady=5)
 
         # 监控开关
-        switch_frame = ttk.LabelFrame(parent, text="监控状态", padding=10)
+        switch_frame = _make_labelframe(parent, "监控状态")
         switch_frame.pack(fill=X, pady=5)
 
         self.status_label = ttk.Label(
@@ -150,7 +199,7 @@ class FishAssistantApp:
         ).pack(side=RIGHT, padx=10)
 
         # 应用使用时间
-        usage_frame = ttk.LabelFrame(parent, text="📱 应用使用时间", padding=10)
+        usage_frame = _make_labelframe(parent, "📱 应用使用时间")
         usage_frame.pack(fill=X, pady=5)
 
         self.usage_bars = {}
@@ -177,7 +226,7 @@ class FishAssistantApp:
             self.usage_bars[app_key] = (bar, time_label)
 
         # 测试提醒按钮
-        test_frame = ttk.LabelFrame(parent, text="🎮 测试提醒", padding=10)
+        test_frame = _make_labelframe(parent, "🎮 测试提醒")
         test_frame.pack(fill=X, pady=5)
 
         btn_row1 = ttk.Frame(test_frame)
@@ -204,7 +253,7 @@ class FishAssistantApp:
             ).pack(side=LEFT, padx=3, expand=True, fill=X)
 
         # 今日小结
-        summary_frame = ttk.LabelFrame(parent, text="📝 今日小结", padding=10)
+        summary_frame = _make_labelframe(parent, "📝 今日小结")
         summary_frame.pack(fill=BOTH, expand=True, pady=5)
 
         self.summary_label = ttk.Label(
@@ -292,7 +341,7 @@ class FishAssistantApp:
         ).pack(fill=X, pady=(0, 15))
 
         # 时间限制设置
-        limit_frame = ttk.LabelFrame(parent, text="⏱️ 使用时间限制(分钟)", padding=10)
+        limit_frame = _make_labelframe(parent, "⏱️ 使用时间限制(分钟)")
         limit_frame.pack(fill=X, pady=5)
 
         limit_items = [
@@ -315,7 +364,7 @@ class FishAssistantApp:
             ).pack(side=RIGHT, padx=10)
 
         # 提醒类型开关
-        type_frame = ttk.LabelFrame(parent, text="🔔 提醒类型", padding=10)
+        type_frame = _make_labelframe(parent, "🔔 提醒类型")
         type_frame.pack(fill=X, pady=5)
 
         type_items = [
@@ -335,7 +384,7 @@ class FishAssistantApp:
             ).pack(anchor=W, pady=2)
 
         # 其他设置
-        other_frame = ttk.LabelFrame(parent, text="🛠️ 其他", padding=10)
+        other_frame = _make_labelframe(parent, "🛠️ 其他")
         other_frame.pack(fill=X, pady=5)
 
         ttk.Checkbutton(
@@ -627,9 +676,17 @@ class FishAssistantApp:
 
     def run(self):
         """启动应用"""
+        logger.info("Starting application mainloop")
         # 如果上次开着监控，自动恢复
         if self.settings_manager.settings.monitor_enabled:
             self.scheduler.start()
             self.status_label.configure(text="✅ 监控运行中...", bootstyle="success")
+            logger.info("Monitor auto-resumed from previous session")
 
-        self.root.mainloop()
+        try:
+            self.root.mainloop()
+        except Exception as e:
+            logger.error(f"Mainloop error: {e}\n{traceback.format_exc()}")
+            raise
+        finally:
+            logger.info("Application exited")

@@ -1,11 +1,23 @@
 """
-搞怪图片下载器 - 从网上搜集摸鱼/提肛/喝水提醒的搞怪表情包
-下载并缓存到本地，提醒弹窗中展示真正的搞怪表情包
+搞怪图片管理器 - 分目录管理各类型表情包
+每个提醒类型有独立的图片目录，弹窗时随机选取一张
+
+目录结构:
+  ~/.fish_assistant/images/
+    ├── drink_water/    💧 喝水提醒图片
+    ├── kegel/          🍑 提肛提醒图片
+    ├── fish_touch/     🐟 摸鱼提醒图片
+    ├── rest_eyes/      👀 护眼提醒图片
+    └── stretch/        🧘 伸展提醒图片
+
+用户可以往对应目录放自己的表情包图片(.png/.jpg/.gif)，
+程序会自动识别并随机展示。
 """
 
 import os
 import random
 import hashlib
+import logging
 from pathlib import Path
 from typing import List, Optional
 from io import BytesIO
@@ -16,6 +28,14 @@ except ImportError:
     Image = None
     ImageDraw = None
     ImageFont = None
+
+logger = logging.getLogger("fish_assistant.images")
+
+# 支持的图片格式
+SUPPORTED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"}
+
+# 所有提醒类型
+ALL_REMINDER_TYPES = ["drink_water", "kegel", "fish_touch", "rest_eyes", "stretch"]
 
 
 class FunnyImageManager:
@@ -109,6 +129,18 @@ class FunnyImageManager:
         self._cache_dir = cache_dir
         os.makedirs(cache_dir, exist_ok=True)
 
+        # 为每个提醒类型创建独立子目录
+        for rtype in ALL_REMINDER_TYPES:
+            type_dir = os.path.join(cache_dir, rtype)
+            os.makedirs(type_dir, exist_ok=True)
+
+        logger.info(f"Image manager initialized, root: {cache_dir}")
+        logger.info(f"  Subdirs: {ALL_REMINDER_TYPES}")
+
+    def _type_dir(self, reminder_type: str) -> str:
+        """获取指定类型的图片目录路径"""
+        return os.path.join(self._cache_dir, reminder_type)
+
     # ── 生成表情包风格图片（本地生成，不依赖网络）──
 
     def generate_meme_image(
@@ -117,7 +149,7 @@ class FunnyImageManager:
         size: tuple = (400, 400),
     ) -> Optional[str]:
         """
-        生成表情包风格的搞笑提醒图片并保存到缓存目录。
+        生成表情包风格的搞笑提醒图片，保存到对应类型的子目录。
         返回图片文件路径。每次随机选择一个模板。
         """
         templates = self.MEME_TEMPLATES.get(reminder_type, [])
@@ -125,6 +157,7 @@ class FunnyImageManager:
             templates = [{"emoji": "🐟", "top": "该休息了", "bottom": "你太卷了"}]
         tmpl = random.choice(templates)
         return self._render_meme(
+            reminder_type=reminder_type,
             emoji=tmpl["emoji"],
             top_text=tmpl["top"],
             bottom_text=tmpl["bottom"],
@@ -133,12 +166,13 @@ class FunnyImageManager:
 
     def _render_meme(
         self,
+        reminder_type: str,
         emoji: str,
         top_text: str,
         bottom_text: str,
         size: tuple = (400, 400),
     ) -> Optional[str]:
-        """渲染一张表情包图片并保存"""
+        """渲染一张表情包图片并保存到对应类型的子目录"""
         if Image is None:
             return None
 
@@ -208,9 +242,10 @@ class FunnyImageManager:
         draw.text((bx + 2, by + 2), bottom_text, fill="#000000", font=font_medium)
         draw.text((bx, by), bottom_text, fill=white, font=font_medium)
 
-        # 保存
-        filename = f"meme_{reminder_type}_{random.randint(0, 99999):05d}.png"
-        filepath = os.path.join(self._cache_dir, filename)
+        # 保存到对应类型的子目录
+        type_dir = self._type_dir(reminder_type)
+        filename = f"meme_{random.randint(0, 99999):05d}.png"
+        filepath = os.path.join(type_dir, filename)
         try:
             img.save(filepath)
             return filepath
@@ -219,15 +254,17 @@ class FunnyImageManager:
 
     def get_random_meme(self, reminder_type: str) -> Optional[str]:
         """
-        获取一张搞笑表情包：
-        1. 先尝试从已缓存的在线图片中选
-        2. 没有则生成一张本地表情包
+        获取一张搞笑表情包（从对应类型的子目录随机取）：
+        1. 先从子目录中已有图片（用户自定义 + 生成的）随机选
+        2. 没有则生成一张并保存
         """
-        # 先看缓存目录有没有在线下载的
-        cached = self._find_cached(reminder_type)
-        if cached:
-            return random.choice(cached)
-        # 生成本地表情包
+        images = self._find_images_in_dir(reminder_type)
+        if images:
+            chosen = random.choice(images)
+            logger.debug(f"Random meme for [{reminder_type}]: {os.path.basename(chosen)}")
+            return chosen
+        # 没有任何图片，生成一张
+        logger.info(f"No images found for [{reminder_type}], generating...")
         return self.generate_meme_image(reminder_type)
 
     def generate_placeholder_image(
@@ -296,12 +333,18 @@ class FunnyImageManager:
             pass
         return None
 
-    def get_cached_or_download(self, url: str) -> Optional[str]:
-        """获取缓存的图片路径，如果不存在则下载"""
-        # 用URL的hash作为文件名
+    def get_cached_or_download(
+        self, url: str, reminder_type: str = ""
+    ) -> Optional[str]:
+        """获取缓存的图片路径，如果不存在则下载到对应类型子目录"""
         url_hash = hashlib.md5(url.encode()).hexdigest()
         ext = os.path.splitext(url)[-1] or ".png"
-        cache_path = os.path.join(self._cache_dir, f"{url_hash}{ext}")
+        # 保存到类型子目录（若有），否则根目录
+        if reminder_type and reminder_type in ALL_REMINDER_TYPES:
+            save_dir = self._type_dir(reminder_type)
+        else:
+            save_dir = self._cache_dir
+        cache_path = os.path.join(save_dir, f"{url_hash}{ext}")
 
         if os.path.exists(cache_path):
             return cache_path
@@ -318,28 +361,47 @@ class FunnyImageManager:
         return None
 
     def get_images_for_type(self, reminder_type: str) -> List[str]:
-        """获取指定提醒类型的所有可用图片路径"""
-        paths = []
+        """
+        获取指定提醒类型的所有可用图片路径。
+        1. 先返回子目录中已有的本地图片
+        2. 再尝试在线下载到子目录
+        """
+        # 本地已有
+        paths = self._find_images_in_dir(reminder_type)
+        # 在线下载
         urls = self.ONLINE_IMAGE_URLS.get(reminder_type, [])
         for url in urls:
-            path = self.get_cached_or_download(url)
-            if path:
+            path = self.get_cached_or_download(url, reminder_type)
+            if path and path not in paths:
                 paths.append(path)
         return paths
 
-    def _find_cached(self, reminder_type: str) -> List[str]:
-        """查找缓存目录中已有的图片"""
+    def _find_images_in_dir(self, reminder_type: str) -> List[str]:
+        """
+        查找指定类型子目录中所有图片文件。
+        支持用户自定义放入的图片 + 程序生成的meme图。
+        """
+        type_dir = self._type_dir(reminder_type)
         results = []
         try:
-            for f in os.listdir(self._cache_dir):
-                if f.startswith(f"meme_{reminder_type}") and f.endswith(".png"):
-                    results.append(os.path.join(self._cache_dir, f))
+            for f in os.listdir(type_dir):
+                ext = os.path.splitext(f)[1].lower()
+                if ext in SUPPORTED_IMAGE_EXTS:
+                    results.append(os.path.join(type_dir, f))
         except OSError:
             pass
         return results
 
+    def _find_cached(self, reminder_type: str) -> List[str]:
+        """向后兼容：查找缓存目录中已有的图片"""
+        return self._find_images_in_dir(reminder_type)
+
     def preload_memes(self, count: int = 3):
-        """预加载每种类型的表情包，启动时调用"""
-        for rtype in self.MEME_TEMPLATES:
-            for _ in range(count):
+        """预加载每种类型的表情包到各自子目录，启动时调用"""
+        for rtype in ALL_REMINDER_TYPES:
+            existing = len(self._find_images_in_dir(rtype))
+            need = max(0, count - existing)
+            for _ in range(need):
                 self.generate_meme_image(rtype)
+            total = len(self._find_images_in_dir(rtype))
+            logger.info(f"  [{rtype}] {total} images ready (generated {need} new)")
