@@ -53,3 +53,4 @@ scripts/build_main.py
 
 # 缓存
 .fish_assistant/
+.buildenv/

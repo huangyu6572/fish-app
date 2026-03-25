@@ -18,7 +18,7 @@ requirements = python3,kivy==2.3.0,pillow,pyjnius
 # Android 配置
 android.permissions = PACKAGE_USAGE_STATS,INTERNET,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE
 android.api = 34
-android.minapi = 26
+android.minapi = 21
 android.ndk_api = 21
 android.archs = arm64-v8a
 

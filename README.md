@@ -74,12 +74,76 @@ python -m pytest tests/ -v
 python -m PyInstaller build.spec
 ```
 
-### 打包手机版 APK（需要Linux/WSL + Buildozer）
+### 打包手机版 APK（需要 Linux/WSL + Buildozer）
+
+#### 环境要求
+
+| 依赖 | 版本要求 | 说明 |
+|------|---------|------|
+| Python | 3.8+ | 编译宿主环境 |
+| Cython | <3.0 (推荐 0.29.x) | ⚠️ Cython 3.x 与 pyjnius 不兼容 |
+| Buildozer | 1.5+ | Kivy 官方打包工具 |
+| Java JDK | 17 | OpenJDK 17 推荐 |
+| Android SDK | API 34 | 自动下载 |
+| Android NDK | r25b | 自动下载 |
+| 系统依赖 | - | build-essential, libffi-dev, libssl-dev, zlib1g-dev, autoconf, libtool, pkg-config, zip, unzip, ccache, cmake |
+
+#### 方式一：使用编译脚本（推荐，WSL 环境）
 
 ```bash
-cd mobile
-buildozer -v android debug
+bash scripts/build_apk_wsl.sh
 ```
+
+#### 方式二：手动编译
+
+```bash
+# 1. 创建虚拟环境
+python3 -m venv .buildenv
+source .buildenv/bin/activate
+
+# 2. 安装 Buildozer（⚠️ Cython 必须 <3.0）
+pip install buildozer 'cython<3.0'
+
+# 3. 准备编译目录（展平文件结构）
+BUILD_DIR="$HOME/fish-app-build"
+mkdir -p "$BUILD_DIR"
+cp -r core "$BUILD_DIR/core"
+cp mobile/main.py mobile/app.py mobile/mobile_monitor.py mobile/buildozer.spec "$BUILD_DIR/"
+
+# 4. 修复 import 路径
+sed -i 's/from mobile\.app import/from app import/' "$BUILD_DIR/main.py"
+sed -i 's/from mobile\.mobile_monitor import/from mobile_monitor import/' "$BUILD_DIR/main.py"
+sed -i 's/from mobile\.mobile_monitor import/from mobile_monitor import/' "$BUILD_DIR/app.py"
+
+# 5. 编译 APK
+cd "$BUILD_DIR"
+buildozer android debug
+```
+
+#### ⚠️ 常见问题
+
+1. **Cython 3.x 报错 `undeclared name not builtin: long`**
+   - 原因：Cython 3.x 移除了 Python 2 的 `long` 类型，与 pyjnius 不兼容
+   - 解决：`pip install 'cython<3.0'`
+
+2. **`minsdk` 与 `ndk_api` 不匹配**
+   - 原因：`android.minapi` 与 `android.ndk_api` 必须一致或使用 `--allow-minsdk-ndkapi-mismatch`
+   - 解决：在 `buildozer.spec` 中设置 `android.minapi = 21`，与 `android.ndk_api = 21` 保持一致
+
+3. **首次编译耗时长（10-30分钟）**
+   - 首次编译需要下载 Android SDK、NDK 以及编译 Python 3、SDL2、Kivy 等原生库
+   - 后续编译会使用缓存，速度更快
+
+### 安装 APK 到手机
+
+```bash
+# 使用 ADB 安装（需开启 USB 调试）
+adb install dist/fishassistant-1.0.0-arm64-v8a-debug.apk
+
+# 或将 dist/ 目录下的 APK 文件传输到手机，手动安装
+```
+
+> 📱 **注意**：安装前需在手机上开启「允许安装未知来源应用」。应用需要「应用使用情况访问」权限才能监控其他 App 使用时间。
 
 ## ✨ 功能特色
 

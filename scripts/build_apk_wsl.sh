@@ -83,7 +83,8 @@ python3 -m venv .venv 2>/dev/null || true
 source .venv/bin/activate
 
 pip install --upgrade pip setuptools wheel 2>/dev/null
-pip install buildozer cython 2>/dev/null
+# ⚠️ Cython 必须 <3.0，否则 pyjnius 编译报错 (undeclared name: long)
+pip install buildozer 'cython<3.0' 2>/dev/null
 
 echo "✅ Buildozer 安装完成"
 
