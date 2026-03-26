@@ -65,8 +65,25 @@ python main.py --mobile
 ### 运行测试
 
 ```bash
+# 运行全部单元测试
 python -m pytest tests/ -v
+
+# 仅运行手机端 APK 启动链测试（模拟无 psutil 的 Android 环境）
+python -m pytest tests/test_mobile_app.py -v
 ```
+
+### APK 真机/模拟器测试
+
+```bash
+# 真机测试（USB 连接手机，需开启 USB 调试）
+bash scripts/test_apk_device.sh
+
+# 模拟器测试（需要 KVM 支持，WSL2 需开启嵌套虚拟化）
+bash scripts/test_apk_emulator.sh
+```
+
+测试脚本会自动完成：安装 APK → 启动 App → 检测闪退 → 抓取 logcat 日志 → 截屏 → 生成报告。
+测试产物保存在 `test-results/` 目录。
 
 ### 打包桌面版 EXE
 
@@ -158,7 +175,7 @@ adb install dist/fishassistant-1.0.0-arm64-v8a-debug.apk
 
 ## 🧪 测试
 
-133个单元测试，覆盖所有核心模块：
+164 个单元测试，覆盖所有核心模块 + 手机端启动链：
 
 ```
 tests/test_reminder_types.py     → 提醒类型 & 文案测试
@@ -167,7 +184,19 @@ tests/test_settings_manager.py   → 设置管理测试
 tests/test_reminder_scheduler.py → 调度器测试
 tests/test_image_manager.py      → 图片管理测试
 tests/test_ui_helpers.py         → UI辅助函数测试
+tests/test_mobile_app.py         → 手机版 APK 启动链 & 兼容性测试（31个）
 ```
+
+### 手机端测试覆盖
+
+| 测试类 | 说明 |
+|-------|------|
+| `TestImportSafetyNoPsutil` | 模拟 Android 无 psutil 环境，验证所有 core 模块安全导入 |
+| `TestMobileMonitor` | MobileMonitor 完整接口 + 无 psutil/jnius 降级 |
+| `TestSchedulerWithMobileMonitor` | 调度器与手机监控器集成 |
+| `TestSettingsAndroidPath` | 设置管理在自定义路径下的读写 |
+| `TestImageManagerAndroid` | 图片管理器在无 PIL 环境的降级 |
+| `TestAPKBootChain` | 模拟 APK 展平后的完整 import 启动链 |
 
 ## 📜 License
 

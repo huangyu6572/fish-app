@@ -54,3 +54,6 @@ scripts/build_main.py
 # 缓存
 .fish_assistant/
 .buildenv/
+
+# 模拟器/真机测试产物
+test-results/
