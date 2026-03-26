@@ -8,7 +8,10 @@ import platform
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None  # Android 环境无 psutil
 
 
 @dataclass
@@ -92,6 +95,8 @@ class ProcessMonitor:
 
     def get_running_processes(self) -> List[str]:
         """获取当前运行中的进程名列表"""
+        if psutil is None:
+            return []
         process_names = []
         try:
             for proc in psutil.process_iter(['name']):

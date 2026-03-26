@@ -3,6 +3,7 @@
 使用 KivyMD Material Design 风格
 """
 
+import os
 import random
 import threading
 import time
@@ -672,6 +673,3 @@ class FishAssistantMobileApp(App):
         """App退出时保存"""
         self.scheduler.stop()
         self.settings_manager.save()
-
-
-import os  # noqa: E402 (needed for _show_popup)
