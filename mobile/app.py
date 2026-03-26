@@ -36,6 +36,7 @@ from core.ui_helpers import (
     get_motivational_emoji,
     get_motivational_message,
 )
+from core import __version__ as APP_VERSION
 
 # 手机版进程监控（简化版，手机端无法直接监控其他App进程）
 from mobile.mobile_monitor import MobileMonitor
@@ -441,7 +442,7 @@ class SettingsScreen(Screen):
 
         # 版本信息
         ver_label = Label(
-            text="摸鱼小助手 v1.0.0 | Python Kivy 手机版",
+            text=f"摸鱼小助手 v{APP_VERSION} | Python Kivy 手机版",
             font_size=dp(11),
             size_hint_y=None, height=dp(30),
             color=get_color_from_hex(COLORS["text_light"]),

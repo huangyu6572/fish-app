@@ -7,7 +7,7 @@ package.domain = org.fishapp
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 source.include_patterns = core/*.py,core/**/*.py
-version = 1.0.0
+version = 1.1.0
 
 # 入口
 entrypoint = main.py
