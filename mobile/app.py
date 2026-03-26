@@ -519,14 +519,27 @@ class FishAssistantMobileApp(App):
 
     title = "摸鱼小助手"
 
+    def _get_config_dir(self):
+        """获取配置目录，Android 上使用 app 私有目录"""
+        try:
+            from android.storage import app_storage_path  # noqa: F401
+            # Android 环境：使用 app 私有目录
+            return os.path.join(app_storage_path(), '.fish_assistant')
+        except ImportError:
+            pass
+        # 回退：使用 Kivy 的 user_data_dir
+        return os.path.join(self.user_data_dir, '.fish_assistant')
+
     def build(self):
         # 设置窗口背景色（桌面调试用）
         Window.clearcolor = get_color_from_hex(COLORS["background"])
 
-        # 初始化核心组件
-        self.settings_manager = SettingsManager()
+        # 初始化核心组件（使用 Android 兼容的配置目录）
+        config_dir = self._get_config_dir()
+        self.settings_manager = SettingsManager(config_dir=config_dir)
         self.mobile_monitor = MobileMonitor()
-        self.image_manager = FunnyImageManager()
+        image_cache_dir = os.path.join(config_dir, 'images')
+        self.image_manager = FunnyImageManager(cache_dir=image_cache_dir)
         self.scheduler = ReminderScheduler(
             settings_manager=self.settings_manager,
             process_monitor=self.mobile_monitor,
