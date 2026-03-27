@@ -5,8 +5,8 @@ title = 摸鱼小助手
 package.name = fishassistant
 package.domain = org.fishapp
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,json
-source.include_patterns = core/*.py,core/**/*.py
+source.include_exts = py,png,jpg,kv,atlas,json,otf,ttf
+source.include_patterns = core/*.py,core/**/*.py,assets/fonts/*.otf,assets/fonts/*.ttf
 version = 1.1.0
 
 # 入口

@@ -12,6 +12,7 @@ from functools import partial
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
+from kivy.core.text import LabelBase
 from kivy.metrics import dp
 from kivy.properties import (
     StringProperty, NumericProperty, BooleanProperty, ListProperty
@@ -520,6 +521,40 @@ class FishAssistantMobileApp(App):
 
     title = "摸鱼小助手"
 
+    def _register_chinese_font(self):
+        """注册 NotoSansSC 中文字体为 Kivy 全局默认字体"""
+        # 字体搜索路径：APK assets 目录 / 桌面调试目录
+        candidate_paths = [
+            # Android APK 解包后的路径
+            os.path.join(os.path.dirname(__file__), 'assets', 'fonts', 'NotoSansSC-Regular.otf'),
+            # 桌面调试（直接运行 mobile/main.py）
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'fonts', 'NotoSansSC-Regular.otf'),
+        ]
+        font_path = None
+        for p in candidate_paths:
+            if os.path.exists(p):
+                font_path = p
+                break
+
+        if font_path:
+            try:
+                LabelBase.register(
+                    name='NotoSansSC',
+                    fn_regular=font_path,
+                )
+                # 覆盖 Kivy 内置的 Roboto 默认字体，使所有 Label/Button 自动使用中文字体
+                LabelBase.register(
+                    name='Roboto',
+                    fn_regular=font_path,
+                )
+                from kivy.resources import resource_add_path
+                resource_add_path(os.path.dirname(font_path))
+                print(f'[INFO] Chinese font loaded: {font_path}')
+            except Exception as e:
+                print(f'[WARNING] Failed to load Chinese font: {e}')
+        else:
+            print('[WARNING] NotoSansSC-Regular.otf not found, Chinese may show as boxes')
+
     def _get_config_dir(self):
         """获取配置目录，Android 上使用 app 私有目录"""
         try:
@@ -532,6 +567,9 @@ class FishAssistantMobileApp(App):
         return os.path.join(self.user_data_dir, '.fish_assistant')
 
     def build(self):
+        # 注册中文字体（NotoSansSC 支持中文+emoji），设为 Kivy 全局默认字体
+        self._register_chinese_font()
+
         # 设置窗口背景色（桌面调试用）
         Window.clearcolor = get_color_from_hex(COLORS["background"])
 
@@ -625,7 +663,6 @@ class FishAssistantMobileApp(App):
             font_size=dp(10),
             halign='center',
             valign='middle',
-            font_name='RobotoMono' if os.path.exists('/system') else 'Consolas',
             size_hint_y=0.35,
         )
         art_label.bind(size=art_label.setter('text_size'))
